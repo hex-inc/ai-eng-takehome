@@ -54,6 +54,8 @@ from tools.your_cool_tool_here import (
     DESCRIBE_TABLE,
     LIST_TABLES,
     RUN_SQL,
+    SEARCH_CATALOG,
+    SEARCH_GUIDES,
     VALIDATE_SQL_BUNDLE,
 )
 
@@ -154,6 +156,8 @@ def create_tools() -> dict[str, Tool]:
         RUN_SQL.name: RUN_SQL,
         LIST_TABLES.name: LIST_TABLES,
         DESCRIBE_TABLE.name: DESCRIBE_TABLE,
+        SEARCH_CATALOG.name: SEARCH_CATALOG,
+        SEARCH_GUIDES.name: SEARCH_GUIDES,
     }
 
 
