@@ -50,6 +50,12 @@ from framework.agent import ANSWER_SUBMITTED_PREFIX, Agent, AgentEvent, EventTyp
 from framework.database import execute_query
 from framework.llm import OpenRouterConfig, TokenUsage
 from tools.submit_answer import SUBMIT_ANSWER
+from tools.your_cool_tool_here import (
+    DESCRIBE_TABLE,
+    LIST_TABLES,
+    RUN_SQL,
+    VALIDATE_SQL_BUNDLE,
+)
 
 # =============================================================================
 # Evaluation Configuration
@@ -145,8 +151,9 @@ def create_tools() -> dict[str, Tool]:
     """
     return {
         SUBMIT_ANSWER.name: SUBMIT_ANSWER,
-        # Add your custom tools here:
-        # MY_TOOL.name: MY_TOOL,
+        RUN_SQL.name: RUN_SQL,
+        LIST_TABLES.name: LIST_TABLES,
+        DESCRIBE_TABLE.name: DESCRIBE_TABLE,
     }
 
 
@@ -961,6 +968,12 @@ def parse_args() -> argparse.Namespace:
         default="hard",
         help="Which evaluation split to run: 'easy', 'hard', or 'both' (default: hard)",
     )
+    parser.add_argument(
+        "--max-cases",
+        type=int,
+        default=None,
+        help="Optional limit on number of cases to run per split.",
+    )
     return parser.parse_args()
 
 
@@ -996,7 +1009,7 @@ def main() -> None:
             data_dir / "evals_easy.json",
             data_dir / "evals_hard.json",
         ]
-    max_cases = None
+    max_cases = args.max_cases
 
     # Filter to existing files
     eval_files = [f for f in eval_files if f.exists()]
