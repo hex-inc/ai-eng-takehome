@@ -6,12 +6,12 @@ The international operations division uses these geographic data conventions:
 
 - Use ISO 3166-1 alpha-3 country codes as the primary identifier, not country names.
 - Country names can vary (e.g., "USA" vs "United States") - always join on codes.
-- Historical country codes (Soviet Union, Yugoslavia, etc.) should be mapped to successor states.
+- Successor-state analyses require a supplied historical crosswalk. Descriptive reports of this archive retain its recorded codes and names.
 
 ## City Data
 
 - "Major cities" are defined as those with population > 2,000,000.
-- Capital cities should always be flagged regardless of population size.
+- Capital status can be reported as a flag when requested; it does not override a major-city population threshold.
 - City populations change frequently - always note the census/estimate year.
 
 ## Language Analysis
@@ -23,7 +23,7 @@ The international operations division uses these geographic data conventions:
 ## Population Metrics
 
 - Population density = Population / Surface Area (in persons per sq km).
-- Use the most recent population estimate available, not census figures which may be dated.
+- For this archive, use the population stored in world.Country or world.City. No alternative estimate dates are available.
 - Population projections should be clearly labeled as estimates with confidence ranges.
 
 ## Economic Indicators
@@ -43,3 +43,9 @@ The international operations division uses these geographic data conventions:
 - Life expectancy and infant mortality rates from conflict zones may be estimates.
 - Independence dates should be verified for recently formed nations.
 - Flag territories and dependencies separately from sovereign nations.
+
+## Authoritative snapshot
+
+Use world.Country, world.City, and world.CountryLanguage for country, city, population, economic, and language reports. Countries and Mondial are separate datasets and are not substitutes. Join country records on Code/CountryCode, while displaying recorded names as requested. Density requires positive population and positive SurfaceArea.
+
+This is an archived snapshot; source estimate years and nominal/PPP labels were not preserved. Do not invent them, treat the figures as current estimates, or add unavailable metadata to the result. GNP is reported as stored, without per-capita or currency conversion. Official-language flags are stored as 'T' and 'F'. Return flags and metadata only when requested. Population and economic quality flags do not exclude rows unless a question specifies an exclusion.

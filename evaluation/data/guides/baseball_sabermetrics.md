@@ -7,7 +7,7 @@ The baseball analytics division adheres to these measurement standards:
 - Batting average (BA) = Hits / At Bats. NEVER include walks in the denominator.
 - On-base percentage (OBP) includes walks, HBP, and sacrifice flies in the calculation.
 - Slugging percentage (SLG) = Total Bases / At Bats. Weight: 1B=1, 2B=2, 3B=3, HR=4.
-- Players with fewer than 100 at-bats in a season should be excluded from rate statistics.
+- Seasonal batting rate statistics require at least 100 at-bats in the full season. Career statistics include all seasons and stints; apply only the career minimum specified in the question.
 
 ## Pitching Standards
 
@@ -24,7 +24,7 @@ The baseball analytics division adheres to these measurement standards:
 
 ## Historical Adjustments
 
-- Dead-ball era (pre-1920) statistics should be adjusted for era when comparing across time.
+- Era-adjusted comparisons require an explicitly supplied adjustment model. Descriptive leaderboards for raw batting average, ERA, WHIP, games started, and career hits use recorded counts from all years without era adjustments.
 - Steroid era (1994-2004) statistics are reported as-is but should be flagged in comparative analysis.
 - Negro League statistics (when available) should be included in career totals for Hall of Fame analysis.
 
@@ -32,7 +32,7 @@ The baseball analytics division adheres to these measurement standards:
 
 - MVP voting should use first-place votes as the primary metric, not total points.
 - All-Star appearances before 1933 (first game) cannot be compared with later years.
-- Hall of Fame voting percentage is cumulative - track year-over-year progression.
+- Hall of Fame voting support is votes / ballots for that voting year. Voting-result reports can include unsuccessful nominations; inductee reports require inducted = 'Y'.
 
 ## Hall of Fame Table Structure
 
@@ -46,3 +46,9 @@ The baseball analytics division adheres to these measurement standards:
 - Pythagorean wins = Expected wins based on runs scored vs. runs allowed.
 - Teams outperforming Pythagorean expectation by more than 5 wins are "lucky" - flag for regression analysis.
 - Playoff performance should be weighted separately from regular season for clutch analysis.
+
+## Seasons, stints, and pitching eligibility
+
+Batting and pitching rows can represent separate team stints within a season. Sum counts by playerID and yearID before computing seasonal rates, applying minimums, or ranking seasons. IPouts counts outs; innings pitched = SUM(IPouts) / 3. Calculate ERA and WHIP from summed counts, not by averaging row-level rates or using the stored ERA field.
+
+Non-relievers have at least 50 innings in the full season. Starting-pitcher rankings require both at least 50 innings and at least one game started. An unrestricted WHIP leaderboard includes relievers and requires only positive innings. Career Hall of Fame hits have no at-bat minimum. Induction year is the successful Player-category induction year; BBWAA voting support is unrelated to the first-place-vote convention for MVP awards.

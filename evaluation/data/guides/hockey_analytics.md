@@ -25,3 +25,7 @@ The hockey analytics team adheres to the following conventions when querying the
 
 - When analyzing award winners, exclude any player who won due to a shortened season (fewer than 60 games league-wide).
 - Hall of Fame induction year should not be used as a proxy for career quality - many deserving players are excluded or delayed.
+
+## Career scoring totals
+
+For NHL career points and goals, use Hockey.Scoring rows with lgID = 'NHL', sum regular-season Pts or G across all stints, and count distinct year values for seasons. Post* fields are playoff statistics and are excluded. The regular-season G field is the recorded official total; do not infer shootout adjustments from unrelated fields. Career leaderboards need no goalie, award, home-schedule, or plus/minus exclusions.
