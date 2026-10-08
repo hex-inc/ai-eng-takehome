@@ -46,6 +46,11 @@ This comparison is "loose" - in your agent's output dataframe,
   with the right values, it's still correct)
 - extra columns on the returned dataframe are not penalized (if your agent
   returns extra columns, it's still correct)
+- row order is ignored, but duplicate rows and associations between columns must match
+- numbers are compared with an absolute tolerance of `0.0001`; integer, decimal,
+  and floating-point types are interchangeable, but numeric strings are not
+- a top-N question's stated tie-break determines which rows belong in the result;
+  rate units and required output columns are specified in the question
 
 Your goal is to build tools and structures for an agent that can reproduce the
 appropriate answers to as many of the given HARD questions as possible!
@@ -77,7 +82,11 @@ After cloning the repository, you'll need to unzip it:
 unzip hecks.duckdb.zip
 ```
 
-This will extract `hecks.duckdb` (~635 MB) to the root directory of the repository.
+This will extract `hecks.duckdb` (~645 MB) to the root directory of the repository.
+
+The database is ready to use after extraction; no initialization or migration is required.
+It contains historical and synthetic records for this exercise. Use the database and
+domain guides as the sources for your answers.
 
 Additionally, you'll need an OpenRouter API Key.
 Your recruiter will provision you with a key to use for the week.

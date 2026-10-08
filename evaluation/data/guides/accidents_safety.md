@@ -5,7 +5,7 @@ The safety and compliance division uses these rules for accident data:
 ## Incident Classification
 
 - Only incidents with a completed investigation (all required fields populated) should be included in official statistics.
-- Near-misses (incidents without injury) are tracked separately from actual accidents.
+- Near-misses require an explicit near-miss classification. A recorded collision without injury is a property-damage accident, not a near-miss.
 - Multi-vehicle incidents should be counted as ONE incident but with multiple vehicle records linked.
 
 ## Severity Scoring
@@ -34,6 +34,10 @@ The safety and compliance division uses these rules for accident data:
 
 ## Reporting Rules
 
-- All accident statistics should be reported per 100,000 population or per million vehicle-kilometers.
+- Comparative accident rates require population or vehicle-kilometer exposure. A descriptive inventory explicitly requesting counts reports raw counts.
 - Year-over-year comparisons must use the same reporting methodology.
 - Preliminary data (current year) should be clearly labeled as subject to revision.
+
+## Raw incident inventory
+
+Accidents.nesreca contains one row per recorded accident; count these rows for raw accident counts by upravna_enota. Do not join person/vehicle records to count incidents, require injury, or infer investigation completion from unrelated non-NULL fields. The snapshot does not provide a documented completion flag or exposure denominator. Certified official statistics and normalized rates require those additional inputs; a raw inventory does not impose those unavailable filters. Severity, vulnerable-user, and time-window rules apply only to analyses of those dimensions.

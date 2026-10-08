@@ -1,85 +1,95 @@
-"""Loose dataframe comparison utilities for evaluation.
-
-This module provides functions to compare dataframes with flexible matching rules,
-suitable for comparing SQL query results where exact formatting may differ.
-"""
+"""Compare SQL result multisets while allowing extra columns and numeric tolerance."""
 
 from __future__ import annotations
 
 import math
+from collections import defaultdict, deque
+from decimal import Decimal, localcontext
 from itertools import product
 
 import polars as pl
 
-# Default tolerance for floating point comparison
-DEFAULT_EPSILON: float = 1e-4
+DEFAULT_EPSILON = 1e-4
+type Cell = tuple[str, Decimal | str]
+type Row = tuple[Cell, ...]
 
 
-def _epsilon_to_precision(epsilon: float) -> int:
-    """Convert an epsilon tolerance to an appropriate float precision.
-
-    The precision is chosen such that values within epsilon will typically
-    normalize to the same string representation.
-
-    Args:
-        epsilon: The tolerance for floating point comparison.
-
-    Returns:
-        Number of decimal places to use for normalization.
-    """
-    if epsilon <= 0:
-        return 9  # Fallback to high precision
-    # Use one fewer decimal place than the epsilon magnitude
-    # e.g., epsilon=1e-6 -> precision=5
-    return max(0, -int(math.floor(math.log10(epsilon))) - 1)
-
-
-def _normalize_value(value: object, float_precision: int = 6) -> str:
-    """Normalize a value to a canonical string for comparison.
-
-    This handles:
-    - int vs float equivalence (1 == 1.0)
-    - Floating point precision issues (0.1 + 0.2 ≈ 0.3)
-    - None/null values
-
-    Args:
-        value: The value to normalize.
-        float_precision: Number of decimal places to round floats to.
-
-    Returns:
-        A normalized string representation.
-    """
+def _cell(value: object) -> Cell:
+    """Keep types distinct while making integer, decimal, and float values comparable."""
     if value is None:
-        return "__NULL__"
-
-    # Handle numeric types with special care
-    if isinstance(value, float):
-        # Check for NaN
-        if value != value:  # NaN != NaN
-            return "__NAN__"
-        # Check for infinity
-        if value == float("inf"):
-            return "__INF__"
-        if value == float("-inf"):
-            return "__NEG_INF__"
-        # Round to handle precision issues
-        rounded = round(value, float_precision)
-        # If it's effectively an integer, represent as integer
-        if rounded == int(rounded):
-            return str(int(rounded))
-        # Otherwise, use rounded float representation
-        # Strip trailing zeros for consistency
-        return f"{rounded:.{float_precision}f}".rstrip("0").rstrip(".")
-
-    if isinstance(value, int):
-        return str(value)
-
+        return ("null", "")
     if isinstance(value, bool):
-        # Handle bool before int check (bool is subclass of int in Python)
-        return str(value)
+        return ("bool", str(value))
+    if isinstance(value, (int, float, Decimal)):
+        number = Decimal(str(value))
+        if number.is_nan():
+            return ("nan", "")
+        if number.is_infinite():
+            return ("infinity", str(number))
+        return ("number", number)
+    return (type(value).__name__, str(value))
 
-    # For all other types, use string representation
-    return str(value)
+
+def _equal(left: Cell, right: Cell, tolerance: Decimal) -> bool:
+    """Compare finite numbers with absolute tolerance and all other values exactly."""
+    if left[0] != right[0]:
+        return False
+    if isinstance(left[1], Decimal) and isinstance(right[1], Decimal):
+        # DuckDB decimals may have 38 digits, beyond Python's default precision of 28.
+        with localcontext() as context:
+            context.prec = 80
+            return abs(left[1] - right[1]) <= tolerance
+    return left == right
+
+
+def _row_equal(left: Row, right: Row, tolerance: Decimal) -> bool:
+    """Check corresponding cells of two rows without losing their associations."""
+    return all(_equal(a, b, tolerance) for a, b in zip(left, right, strict=True))
+
+
+def _match_rows(expected: list[Row], actual: list[Row], tolerance: Decimal) -> bool:
+    """Find a one-to-one row match, including ambiguous overlapping tolerance windows."""
+    if all(
+        _row_equal(a, b, tolerance) for a, b in zip(sorted(expected), sorted(actual), strict=True)
+    ):
+        return True
+
+    # Exact nonnumeric cells restrict candidate rows before numeric comparisons.
+    buckets: dict[tuple[Cell, ...], list[int]] = defaultdict(list)
+    for index, row in enumerate(actual):
+        key = tuple(cell if cell[0] != "number" else ("number", "") for cell in row)
+        buckets[key].append(index)
+    edges = []
+    for row in expected:
+        key = tuple(cell if cell[0] != "number" else ("number", "") for cell in row)
+        matches = [index for index in buckets[key] if _row_equal(row, actual[index], tolerance)]
+        if not matches:
+            return False
+        edges.append(matches)
+
+    # Augmenting paths can reassign earlier matches; greedy matching is not sufficient.
+    owners: dict[int, int] = {}
+    for start in range(len(expected)):
+        queue = deque([start])
+        parents: dict[int, tuple[int, int] | None] = {start: None}
+        endpoint: tuple[int, int] | None = None
+        while queue and endpoint is None:
+            left = queue.popleft()
+            for right in edges[left]:
+                if right not in owners:
+                    endpoint = (left, right)
+                    break
+                owner = owners[right]
+                if owner not in parents:
+                    parents[owner] = (left, right)
+                    queue.append(owner)
+        if endpoint is None:
+            return False
+        while endpoint is not None:
+            left, right = endpoint
+            owners[right] = left
+            endpoint = parents[left]
+    return True
 
 
 def loosely_compare_dataframes(
@@ -87,78 +97,41 @@ def loosely_compare_dataframes(
     submitted_df: pl.DataFrame,
     epsilon: float = DEFAULT_EPSILON,
 ) -> bool:
-    """Compare two dataframes loosely.
+    """Compare row multisets, ignoring column names, order, and extra submitted columns.
 
-    The comparison allows:
-    - Extra columns in submitted dataframe (ignored)
-    - Different column names (matched by content)
-    - Different row ordering (compared as multisets)
-    - Numeric type flexibility (int 1 == float 1.0)
-    - Floating point tolerance (values within epsilon are equal)
-
-    Args:
-        gold_df: The expected dataframe from the gold query.
-        submitted_df: The dataframe from the submitted query.
-        epsilon: Tolerance for floating point comparison (default 1e-6).
-
-    Returns:
-        True if the dataframes match under the loose comparison rules.
+    Numeric types are interchangeable within an absolute tolerance (default 0.0001).
+    Duplicate rows and associations between columns must match. NULL, NaN, infinity,
+    booleans, and strings remain distinct. Two empty results match if the submitted
+    result has at least the required number of columns.
     """
-    # Row count must match exactly
-    if gold_df.height != submitted_df.height:
+    if not math.isfinite(epsilon) or epsilon < 0:
+        raise ValueError("epsilon must be finite and nonnegative")
+    if gold_df.height != submitted_df.height or submitted_df.width < gold_df.width:
         return False
-
-    # Empty dataframes trivially match, but this shouldn't actually happen
     if gold_df.height == 0:
-        raise ValueError("Empty dataframe returned from gold query")
+        return True
 
-    # Column count check: submitted must have at least as many columns as gold
-    if submitted_df.width < gold_df.width:
-        return False
-
-    gold_cols = gold_df.columns
-    float_precision = _epsilon_to_precision(epsilon)
-
-    def col_to_multiset(df: pl.DataFrame, col: str) -> tuple[str, ...]:
-        """Convert a column to a sorted tuple of normalized values for comparison."""
-        return tuple(
-            sorted(_normalize_value(v, float_precision) for v in df[col].to_list())
-        )
-
-    # For each gold column, find candidate submitted columns with matching value multisets
-    candidates: dict[str, list[str]] = {g: [] for g in gold_cols}
-    for g_col in gold_cols:
-        g_multiset = col_to_multiset(gold_df, g_col)
-        for s_col in submitted_df.columns:
-            if col_to_multiset(submitted_df, s_col) == g_multiset:
-                candidates[g_col].append(s_col)
-        # If no candidates found for a gold column, comparison fails
-        if not candidates[g_col]:
+    tolerance = Decimal(str(epsilon))
+    gold_columns = [[_cell(value) for value in column] for column in gold_df.iter_columns()]
+    actual_columns = [[_cell(value) for value in column] for column in submitted_df.iter_columns()]
+    sorted_actual = [sorted(column) for column in actual_columns]
+    candidates = []
+    for column in gold_columns:
+        expected = sorted(column)
+        matches = [
+            index
+            for index, actual in enumerate(sorted_actual)
+            if all(_equal(a, b, tolerance) for a, b in zip(expected, actual, strict=True))
+        ]
+        if not matches:
             return False
+        candidates.append(matches)
 
-    # Try all valid column assignments (each gold col maps to a unique submitted col)
-    # This handles the case where multiple gold columns have identical value multisets
-    for assignment in product(*[candidates[g] for g in gold_cols]):
-        # Check that each submitted column is used at most once
+    gold_rows = list(zip(*gold_columns, strict=True))
+    for assignment in product(*candidates):
         if len(set(assignment)) != len(assignment):
             continue
-
-        mapping = dict(zip(gold_cols, assignment, strict=True))
-
-        # Build comparable row tuples using normalized values
-        gold_rows = sorted(
-            tuple(_normalize_value(v, float_precision) for v in row)
-            for row in gold_df.rows()
-        )
-        submitted_rows = sorted(
-            tuple(
-                _normalize_value(submitted_df[mapping[g]][i], float_precision)
-                for g in gold_cols
-            )
-            for i in range(submitted_df.height)
-        )
-
-        if gold_rows == submitted_rows:
+        actual_rows = list(zip(*(actual_columns[index] for index in assignment), strict=True))
+        if _match_rows(gold_rows, actual_rows, tolerance):
             return True
-
     return False

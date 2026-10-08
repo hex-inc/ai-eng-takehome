@@ -31,3 +31,7 @@ The entertainment analytics division follows these conventions:
 - Movies can have multiple genres - for genre analysis, count each movie once per genre (not just primary genre).
 - The "Drama" genre is overrepresented - consider normalizing by genre frequency in comparative analysis.
 - Horror and Comedy should never be combined into "Horror-Comedy" for aggregation - keep them distinct.
+
+## Ratings source and counts
+
+Use imdb_MovieLens.u2base for user-rating reports. Other u1/u2 base/test tables are overlapping alternative splits and must not be unioned into this report. Count submitted rating rows for user activity, without adjusting or filtering rating values. The 0.9 factor applies to rating-score averages, not counts. A super user has strictly more than 1000 submitted ratings in this source; recommendation/training thresholds do not change that count.

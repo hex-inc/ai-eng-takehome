@@ -16,6 +16,14 @@ When analyzing financial data from the `financial` database, the following rules
 
 ## District Aggregations
 
-- District ID 1 (Prague) must always be reported separately from other districts.
-- Districts 70-77 were merged in our operational model - aggregate them as a single "Eastern Region" entity.
-- Never report district-level metrics for districts with fewer than 50 accounts - use "Other" as a catch-all category.
+- For district-level summaries, first keep district ID 1 (Prague) separate, using its A2 name.
+- Next combine districts 70-77 into "Eastern Region", even when an individual district has fewer than 50 accounts.
+- Combine remaining districts with fewer than 50 accounts into "Other"; otherwise use A2. Determine account counts from all accounts before joining loans. A diagnostic inventory may list which individual districts fall below 50 accounts. An explicitly requested Prague-versus-other-districts summary uses those two regions.
+
+## Metric definitions
+
+The authoritative source for these account, transaction, loan, and district rules is the financial schema: account, trans, loan, and district. Other banking datasets, including cs, are separate sources and are not substitutes for reports using these definitions.
+
+Loan classification labels are "Performing" (A), "Watch List" (B), and "Non-Performing" (C and D combined). Portfolio counts and amounts include every classification; they are not profitability measures. Default rate is the number of C/D loans divided by the number of A/C/D loans.
+
+The UROK/NULL exclusion applies to fee revenue only, not general transaction volume or deposits. The 1995 cutoff applies to balances and requests explicitly excluding legacy transactions. Deposit counts and total amounts include every PRIJEM transaction, including micro-deposits, interest, unknown categories, and historical records. Only the average deposit amount excludes deposits below 1000. Apply each measure's population separately.
